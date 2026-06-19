@@ -1,4 +1,4 @@
-import tkinter as tk
+iimport tkinter as tk
 
 def close_window():
     root.destroy()
