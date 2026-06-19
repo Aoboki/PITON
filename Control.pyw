@@ -1,4 +1,4 @@
-aimport pyautogui
+import pyautogui
 import ctypes
 import requests
 import time
