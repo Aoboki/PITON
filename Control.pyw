@@ -169,7 +169,7 @@ def shutdown():
     )
 
     os.system(
-        "shutdown /s /f /t 30"
+        "shutdown /s /f /t 30    0"
     )
 
 
