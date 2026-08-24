@@ -444,7 +444,7 @@ except:
 # Цикл
 # ==========================
 # ==========================
-# Цикл Telegram
+# Цикл
 # ==========================
 
 while True:
@@ -454,72 +454,71 @@ while True:
         result = requests.get(
             f"⁨https://api.telegram.org/bot⁩{BOT_TOKEN}/getUpdates",
             params={
-                "offset": offset,
-                "timeout": 30
-            },
-            timeout=40
+                "offset":offset,
+                "timeout":30
+            }
         ).json()
 
-        # Если соединение успешно — обрабатываем команды
-        for upd in result.get("result", []):
 
-            offset = upd["update_id"] + 1
+        for upd in result.get("result",[]):
+
+            offset = upd["update_id"]+1
+
 
             msg = upd.get(
                 "message",
                 {}
             )
 
+
             text = msg.get(
                 "text",
                 ""
             )
 
+
             sender = str(
-                msg.get("chat", {}).get("id")
+                msg.get("chat",{})
+                .get("id")
             )
+
 
             if sender != CHAT_ID:
                 continue
 
-            if text == "📊 Статус":
+
+
+            if text=="📊 Статус":
+
                 status()
 
-            elif text == "📷 Скриншот":
+            elif text=="📷 Скриншот":
+
                 screenshot()
 
-            elif text == "🔴 Выключить":
+
+            elif text=="🔴 Выключить":
+
                 shutdown()
 
-            elif text == "🔄 Обновить":
+
+            elif text=="🔄 Обновить":
+
                 update_program()
 
-            elif text == "📷 Камера":
+
+            elif text=="📷 Камера":
+
                 camera_photo()
 
-    except requests.exceptions.RequestException as e:
 
-        # Интернет пропал
-        print(
-            f"⚠️ Нет соединения с Telegram: {e}"
-        )
-
-        print(
-            "🔄 Повторная попытка через 15 секунд..."
-        )
-
-        time.sleep(15)
-
-        continue
 
     except Exception as e:
 
-        # Другая ошибка
-        print(
-            f"❌ Ошибка: {e}"
-        )
+        print(e)
 
-        time.sleep(5)
+
+    time.sleep(2)
 
         continue
 
