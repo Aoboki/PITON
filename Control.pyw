@@ -14,6 +14,7 @@ import tkinter as tk
 from tkinter import messagebox
 import cv2
 
+
 # ==========================
 # Telegram
 # ==========================
@@ -31,6 +32,7 @@ try:
 except Exception as e:
     print(f"Ошибка чтения Telegram.txt: {e}")
     os._exit(1)
+
 
 
 
@@ -279,7 +281,6 @@ def camera_photo():
             f"❌ Ошибка камеры:\n{e}"
         )
 
-
 # ==========================
 # Команды
 # ==========================
@@ -443,16 +444,13 @@ except:
 # ==========================
 # Цикл
 # ==========================
-# ==========================
-# Цикл
-# ==========================
 
 while True:
 
     try:
 
         result = requests.get(
-            f"⁨https://api.telegram.org/bot⁩{BOT_TOKEN}/getUpdates",
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates",
             params={
                 "offset":offset,
                 "timeout":30
@@ -518,9 +516,4 @@ while True:
         print(e)
 
 
-    time.sleep(2)
-
-        continue
-
-    # Небольшая пауза после успешного запроса
     time.sleep(2)
