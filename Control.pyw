@@ -1,3 +1,4 @@
+```python
 import pyautogui
 import requests
 import time
@@ -13,6 +14,14 @@ from PIL import Image, ImageDraw
 import tkinter as tk
 from tkinter import messagebox
 import cv2
+
+
+# ==========================
+# Настройки соединения
+# ==========================
+
+REQUEST_TIMEOUT = 15
+RECONNECT_DELAY = 5
 
 
 # ==========================
@@ -34,8 +43,6 @@ except Exception as e:
     os._exit(1)
 
 
-
-
 # ==========================
 # Данные ПК
 # ==========================
@@ -47,14 +54,17 @@ START_TIME = time.time()
 
 offset = None
 
+# Состояние подключения
+telegram_connected = False
 
 
 # ==========================
-# Отправка Telegram
+# Telegram отправка
 # ==========================
-
 
 def telegram(text, keyboard=None):
+
+    global telegram_connected
 
     data = {
         "chat_id": CHAT_ID,
@@ -67,11 +77,46 @@ def telegram(text, keyboard=None):
             "resize_keyboard": True
         }
 
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json=data
-    )
+    try:
 
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json=data,
+            timeout=REQUEST_TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        # Если до этого была потеря связи
+        if not telegram_connected:
+
+            telegram_connected = True
+
+            print("🟢 Telegram connection restored")
+
+        return True
+
+    except requests.exceptions.RequestException as e:
+
+        if telegram_connected:
+
+            print(f"🔴 Telegram connection lost: {e}")
+
+        else:
+
+            print(f"⚠️ Telegram unavailable: {e}")
+
+        telegram_connected = False
+
+        return False
+
+    except Exception as e:
+
+        print(f"❌ Telegram error: {e}")
+
+        telegram_connected = False
+
+        return False
 
 
 # ==========================
@@ -97,20 +142,18 @@ def main_menu():
     return keyboard
 
 
-
 # ==========================
 # Статус
 # ==========================
 
 def get_uptime():
 
-    sec = int(time.time()-START_TIME)
+    sec = int(time.time() - START_TIME)
 
     return (
-        f"{sec//3600} ч "
-        f"{(sec%3600)//60} мин"
+        f"{sec // 3600} ч "
+        f"{(sec % 3600) // 60} мин"
     )
-
 
 
 def status():
@@ -119,10 +162,10 @@ def status():
         f"💻 {PC_NAME}\n"
         f"👤 {USER_NAME}\n"
         f"⏱ {get_uptime()}\n"
-        f"🕒 {datetime.now()}"
-        ,
+        f"🕒 {datetime.now()}",
         main_menu()
     )
+
 
 # ==========================
 # Скриншот
@@ -134,44 +177,49 @@ def screenshot():
 
         import tempfile
 
-
         filename = os.path.join(
             tempfile.gettempdir(),
             "screen.png"
         )
 
-
         img = pyautogui.screenshot()
 
         img.save(filename)
 
+        try:
 
+            with open(
+                filename,
+                "rb"
+            ) as photo:
 
-        with open(
-            filename,
-            "rb"
-        ) as photo:
+                response = requests.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+                    data={
+                        "chat_id": CHAT_ID,
+                        "caption": f"📷 Скриншот {PC_NAME}"
+                    },
+                    files={
+                        "photo": photo
+                    },
+                    timeout=REQUEST_TIMEOUT
+                )
 
-            requests.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
-                data={
-                    "chat_id": CHAT_ID,
-                    "caption": f"📷 Скриншот {PC_NAME}"
-                },
-                files={
-                    "photo": photo
-                }
-            )
+                response.raise_for_status()
 
+        finally:
 
-        os.remove(filename)
+            if os.path.exists(filename):
+                os.remove(filename)
 
+    except requests.exceptions.RequestException as e:
+
+        print(f"🔴 Ошибка отправки скриншота: {e}")
 
     except Exception as e:
 
-        telegram(
-            f"❌ Ошибка скриншота:\n{e}"
-        )
+        print(f"❌ Ошибка скриншота: {e}")
+
 
 # ==========================
 # Фото с камеры
@@ -179,38 +227,11 @@ def screenshot():
 
 def camera_photo():
 
-    #import tkinter as tk
-    #from tkinter import messagebox
     import tempfile
-
-
-    #root = tk.Tk()
-    #root.withdraw()
-
-
-    #answer = messagebox.askyesno(
-        #"Камера",
-        #"Разрешить сделать снимок с веб-камеры?"
-    #)
-
-
-    #root.destroy()
-
-
-    #if not answer:
-
-        #telegram(
-            #"📷 Снимок отменён пользователем"
-        #)
-
-        #return
-
-
 
     try:
 
         cap = cv2.VideoCapture(0)
-
 
         if not cap.isOpened():
 
@@ -220,14 +241,9 @@ def camera_photo():
 
             return
 
-
-
         ret, frame = cap.read()
 
-
         cap.release()
-
-
 
         if not ret:
 
@@ -237,49 +253,53 @@ def camera_photo():
 
             return
 
-
-
         filename = os.path.join(
             tempfile.gettempdir(),
             "camera_photo.jpg"
         )
-
 
         cv2.imwrite(
             filename,
             frame
         )
 
+        try:
 
+            with open(
+                filename,
+                "rb"
+            ) as photo:
 
-        with open(
-            filename,
-            "rb"
-        ) as photo:
+                response = requests.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+                    data={
+                        "chat_id": CHAT_ID,
+                        "caption":
+                        f"📷 Фото с камеры\n"
+                        f"💻 {PC_NAME}\n"
+                        f"🕒 {datetime.now()}"
+                    },
+                    files={
+                        "photo": photo
+                    },
+                    timeout=REQUEST_TIMEOUT
+                )
 
+                response.raise_for_status()
 
-            requests.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
-                data={
-                    "chat_id": CHAT_ID,
-                    "caption":
-                    f"📷 Фото с камеры\n💻 {PC_NAME}\n🕒 {datetime.now()}"
-                },
-                files={
-                    "photo": photo
-                }
-            )
+        finally:
 
+            if os.path.exists(filename):
+                os.remove(filename)
 
-        os.remove(filename)
+    except requests.exceptions.RequestException as e:
 
-
+        print(f"🔴 Ошибка отправки фото: {e}")
 
     except Exception as e:
 
-        telegram(
-            f"❌ Ошибка камеры:\n{e}"
-        )
+        print(f"❌ Ошибка камеры: {e}")
+
 
 # ==========================
 # Команды
@@ -297,7 +317,6 @@ def shutdown():
     )
 
 
-
 def update_program():
 
     try:
@@ -308,17 +327,14 @@ def update_program():
             main_menu()
         )
 
-
         folder = os.path.dirname(
             os.path.abspath(__file__)
         )
-
 
         new_program = os.path.join(
             folder,
             "Launcher_1.1.pyw"
         )
-
 
         if os.path.exists(new_program):
 
@@ -330,11 +346,9 @@ def update_program():
                 cwd=folder
             )
 
-
             time.sleep(2)
 
             os._exit(0)
-
 
         else:
 
@@ -342,12 +356,10 @@ def update_program():
                 "❌ Launcher_1.1.pyw не найден"
             )
 
-
     except Exception as e:
 
-        telegram(
-            f"❌ Ошибка обновления:\n{e}"
-        )
+        print(f"❌ Ошибка обновления: {e}")
+
 
 def lock():
 
@@ -358,6 +370,7 @@ def lock():
 
     ctypes.windll.user32.LockWorkStation()
 
+
 # ==========================
 # Иконка в трее
 # ==========================
@@ -366,19 +379,18 @@ def create_image():
 
     image = Image.new(
         "RGB",
-        (64,64),
+        (64, 64),
         "black"
     )
 
     draw = ImageDraw.Draw(image)
 
     draw.rectangle(
-        (16,16,48,48),
+        (16, 16, 48, 48),
         fill="green"
     )
 
     return image
-
 
 
 def exit_program(icon, item):
@@ -386,7 +398,6 @@ def exit_program(icon, item):
     icon.stop()
 
     os._exit(0)
-
 
 
 def tray():
@@ -398,7 +409,6 @@ def tray():
         )
     )
 
-
     icon = pystray.Icon(
         "PC Control",
         create_image(),
@@ -406,9 +416,7 @@ def tray():
         menu
     )
 
-
     icon.run()
-
 
 
 threading.Thread(
@@ -416,104 +424,229 @@ threading.Thread(
     daemon=True
 ).start()
 
-# ==========================
-# Запуск
-# ==========================
-
-telegram(
-    f"🟢 ПК подключён\n\n"
-    f"💻 {PC_NAME}\n"
-    f"👤 {USER_NAME}",
-    main_menu()
-)
-
-# пропускаем старые сообщения Telegram
-try:
-
-    updates = requests.get(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-    ).json()
-
-    if updates.get("result"):
-        offset = updates["result"][-1]["update_id"] + 1
-
-except:
-    pass
-
 
 # ==========================
-# Цикл
+# Получение старых сообщений
+# ==========================
+
+def initialize_offset():
+
+    global offset
+
+    try:
+
+        response = requests.get(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates",
+            timeout=REQUEST_TIMEOUT
+        )
+
+        response.raise_for_status()
+
+        updates = response.json()
+
+        if updates.get("result"):
+
+            offset = (
+                updates["result"][-1]["update_id"] + 1
+            )
+
+        print("🟢 Telegram initialization OK")
+
+        return True
+
+    except Exception as e:
+
+        print(
+            f"⚠️ Не удалось получить старые сообщения: {e}"
+        )
+
+        return False
+
+
+# ==========================
+# Основной цикл
+# ==========================
+
+print()
+print("==============================")
+print("   PC CONTROL STARTED")
+print("==============================")
+print(f"💻 PC: {PC_NAME}")
+print(f"👤 User: {USER_NAME}")
+print()
+
+
+# ==========================
+# Первоначальное подключение
+# ==========================
+
+connected_once = False
+
+while not connected_once:
+
+    print("🔄 Подключение к Telegram...")
+
+    if telegram(
+        f"🟢 ПК подключён\n\n"
+        f"💻 {PC_NAME}\n"
+        f"👤 {USER_NAME}",
+        main_menu()
+    ):
+
+        connected_once = True
+
+        print("🟢 Telegram connected")
+
+    else:
+
+        print(
+            f"⏳ Нет интернета. "
+            f"Повтор через {RECONNECT_DELAY} секунд..."
+        )
+
+        time.sleep(RECONNECT_DELAY)
+
+
+# Пропускаем старые сообщения
+
+initialize_offset()
+
+
+# ==========================
+# Главный цикл
 # ==========================
 
 while True:
 
     try:
 
-        result = requests.get(
+        response = requests.get(
             f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates",
             params={
-                "offset":offset,
-                "timeout":30
-            }
-        ).json()
+                "offset": offset,
+                "timeout": 30
+            },
+            timeout=40
+        )
 
+        response.raise_for_status()
 
-        for upd in result.get("result",[]):
+        result = response.json()
 
-            offset = upd["update_id"]+1
+        # Если после отключения интернет снова появился
+        if not telegram_connected:
 
+            telegram_connected = True
+
+            print("🟢 Интернет / Telegram восстановлен")
+
+            telegram(
+                f"🟢 Связь восстановлена\n\n"
+                f"💻 {PC_NAME}\n"
+                f"👤 {USER_NAME}",
+                main_menu()
+            )
+
+        # ==========================
+        # Обработка сообщений
+        # ==========================
+
+        for upd in result.get("result", []):
+
+            offset = upd["update_id"] + 1
 
             msg = upd.get(
                 "message",
                 {}
             )
 
-
             text = msg.get(
                 "text",
                 ""
             )
 
-
             sender = str(
-                msg.get("chat",{})
+                msg.get("chat", {})
                 .get("id")
             )
-
 
             if sender != CHAT_ID:
                 continue
 
+            print(f"📩 Команда: {text}")
 
-
-            if text=="📊 Статус":
+            if text == "📊 Статус":
 
                 status()
 
-            elif text=="📷 Скриншот":
+            elif text == "📷 Скриншот":
 
                 screenshot()
 
-
-            elif text=="🔴 Выключить":
+            elif text == "🔴 Выключить":
 
                 shutdown()
 
-
-            elif text=="🔄 Обновить":
+            elif text == "🔄 Обновить":
 
                 update_program()
 
-
-            elif text=="📷 Камера":
+            elif text == "📷 Камера":
 
                 camera_photo()
 
+    # ==========================
+    # Потеря интернета
+    # ==========================
 
+    except requests.exceptions.Timeout:
+
+        print(
+            "⏳ Telegram timeout. "
+            "Повторное подключение..."
+        )
+
+        telegram_connected = False
+
+        time.sleep(RECONNECT_DELAY)
+
+    except requests.exceptions.ConnectionError as e:
+
+        print(
+            f"🔴 Интернет отключён: {e}"
+        )
+
+        telegram_connected = False
+
+        print(
+            f"⏳ Повтор через {RECONNECT_DELAY} секунд..."
+        )
+
+        time.sleep(RECONNECT_DELAY)
+
+    except requests.exceptions.RequestException as e:
+
+        print(
+            f"🔴 Ошибка Telegram: {e}"
+        )
+
+        telegram_connected = False
+
+        time.sleep(RECONNECT_DELAY)
 
     except Exception as e:
 
-        print(e)
+        # Очень важно:
+        # никакая ошибка не должна завершить программу
 
+        print(
+            f"⚠️ Ошибка основного цикла: {e}"
+        )
 
-    time.sleep(2)
+        time.sleep(RECONNECT_DELAY)
+
+    else:
+
+        # Небольшая пауза между запросами
+        time.sleep(2)
+```
