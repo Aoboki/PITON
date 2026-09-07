@@ -1,4 +1,3 @@
-```python
 import pyautogui
 import requests
 import time
@@ -649,4 +648,4 @@ while True:
 
         # Небольшая пауза между запросами
         time.sleep(2)
-```
+
